@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.27.7"
+  },
+  "name": "humanitarian-fundraising-ai-hub",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "esbuild web/main.jsx --bundle --minify --outfile=dist/app.js && cp web/index.html dist/index.html"
+  },
+  "private": true
+}

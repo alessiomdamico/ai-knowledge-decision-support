@@ -1,0 +1,11 @@
+:root{font:16px/1.55 system-ui,sans-serif;color:#192e29;background:#f1f3eb;--green:#143d32;--line:#d4ded3;--paper:#fffcf5}
+*{box-sizing:border-box}body{margin:0}.wrap{width:min(100% - 36px,1000px);margin:auto}
+header{background:#143d32;color:#fbf9ec}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:68px}
+.brand,.eyebrow,.tag{font-size:.75rem;letter-spacing:.1em;font-weight:750}.brand b{color:#f2ba72}.tag{display:inline-block;background:#e3ebdf;color:#204639;padding:5px 8px;border-radius:5px}.hero{padding:45px 0 25px}
+h1{font:clamp(2.7rem,7vw,5rem)/.98 Georgia,serif;letter-spacing:-.05em;margin:12px 0 15px}.hero p{font-size:1.12rem;margin:0;color:#38534a}
+nav{display:flex;gap:8px;margin-bottom:12px}button,select,textarea{font:inherit}button,select{color:inherit;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:7px 12px}button{cursor:pointer}button:hover:not(:disabled){border-color:var(--green)}button:disabled{opacity:.55;cursor:default}
+button[aria-pressed=true],.primary{color:#fff;background:var(--green);border-color:var(--green)}.primary{margin-top:15px;padding:10px 16px}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:clamp(15px,4vw,30px)}.panel-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;margin-bottom:15px}
+h2,h3,p{margin-top:0}h2{font-size:1.22rem;margin-bottom:0}h3{font-size:1rem;margin:7px 0 0}label{font-size:.87rem;font-weight:700}textarea{display:block;width:100%;resize:vertical;min-height:76px;padding:10px;margin:6px 0 10px;background:#fff;border:1px solid #aebfb3;border-radius:8px;color:inherit}.examples{display:flex;flex-wrap:wrap;gap:6px}.examples button{font-size:.82rem}
+.answer{margin-top:20px;padding-top:20px;border-top:1px solid var(--line)}.response{white-space:pre-wrap;margin:10px 0 18px}.sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:10px;margin-top:10px}.source{border:1px solid var(--line);border-radius:8px;padding:12px;background:#f5f7ef}.source p{margin:8px 0 0}
+aside,footer{font-size:.85rem;color:#3d564d;padding:14px 0}footer{border-top:1px solid var(--line);margin-bottom:14px}:focus-visible{outline:3px solid #a35213;outline-offset:2px}
