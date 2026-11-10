@@ -34,7 +34,7 @@ function App() {
   return <>
     <header><div className="wrap top"><span className="brand">KNOWLEDGE <b>/</b> DECISION SUPPORT</span><span className="tag">LOCAL AI · 2026</span></div></header>
     <main className="wrap">
-      <div className="hero"><div className="eyebrow">INDEPENDENT TECHNICAL PROJECT</div>
+      <div className="hero">
         <h1>AI Knowledge &amp;<br/>Decision Support Platform</h1>
         <p>Index documents, review what gets published, and ask questions with inspectable sources.</p>
       </div>
@@ -92,7 +92,7 @@ function App() {
       </section>
       <aside>Review generated answers against their sources. Use public or cleared documents only.</aside>
     </main>
-    <footer className="wrap">Independent technical project by Alessio D’Amico · 2026</footer>
+    <footer className="wrap">© 2026 Alessio Maria D'Amico</footer>
   </>;
 }
 createRoot(document.getElementById('root')).render(<App />);
