@@ -32,7 +32,7 @@ function App() {
   }
 
   return <>
-    <header><div className="wrap top"><span className="brand">KNOWLEDGE <b>/</b> DECISION SUPPORT</span><span className="tag">LOCAL AI · 2026</span></div></header>
+    <header><div className="wrap top"><span className="brand">KNOWLEDGE <b>/</b> DECISION SUPPORT</span><span className="tag">LOCAL AI</span></div></header>
     <main className="wrap">
       <div className="hero">
         <h1>AI Knowledge &amp;<br/>Decision Support Platform</h1>
