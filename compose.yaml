@@ -1,0 +1,13 @@
+services:
+  hub:
+    build: .
+    ports:
+      - "127.0.0.1:8769:8769"
+    environment:
+      HUB_ALLOW_DOWNLOAD: "${HUB_ALLOW_DOWNLOAD:-0}"
+    volumes:
+      - documents:/app/data
+      - models:/models
+volumes:
+  documents:
+  models:

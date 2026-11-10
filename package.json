@@ -6,8 +6,8 @@
   "devDependencies": {
     "esbuild": "0.27.7"
   },
-  "name": "humanitarian-fundraising-ai-hub",
-  "version": "0.1.0",
+  "name": "ai-knowledge-decision-support-platform",
+  "version": "0.2.0",
   "scripts": {
     "build": "esbuild web/main.jsx --bundle --minify --outfile=dist/app.js && cp web/index.html dist/index.html"
   },

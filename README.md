@@ -1,87 +1,43 @@
-# Humanitarian Fundraising AI Hub
+# AI Knowledge & Decision Support Platform
 
-An independent full-stack portfolio MVP by Alessio D’Amico (2026). It helps a fictional fundraising team find source-backed answers for draft campaign and donor communications. It is not UNICEF work, has no affiliation or endorsement, and contains no private UNICEF, donor, or beneficiary data.
+**Independent technical project by Alessio D’Amico · 2026**
 
-![Local demo showing a Qwen-selected answer and its supporting source](docs/demo.jpg)
+A local web application for ingesting text documents, reviewing versions, and asking questions against published material. The app generates answers with Qwen and returns the exact passages behind its citations. The example corpus uses synthetic IT operations documents.
 
-## Try it locally
+[Architecture and request flow](docs/ARCHITECTURE.md) · [Threat model](docs/THREAT_MODEL.md) · [Evaluation cases](evaluation/cases.json)
 
-Requires Node.js 22+ and Python 3.9+ (CI uses Python 3.12). From the repository root:
+## Run locally
+
+Use Python 3.12 and Node.js 22+. Model weights are downloaded separately; allow several GB of disk and RAM.
 
 ```sh
 npm ci
 npm run build
-python3 -m venv .venv
+python3.12 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-models.txt
+export HF_HOME="$PWD/.hf-cache"
+HUB_ALLOW_DOWNLOAD=1 python -m evaluation.run
 python -m uvicorn hub.app:app --host 127.0.0.1 --port 8769 --no-access-log
 ```
 
-Open **http://127.0.0.1:8769**. Ask **What does the safe water appeal fund?** and inspect its supporting source. Switch the source language to **Español** and try **¿Qué debe incluir un informe a donantes?**. Ask **Who discovered Neptune?** to see the insufficient-evidence state. Open **Source library** to see the published and draft metadata. Without a model configured, the app explicitly displays attributed excerpts.
+The evaluation warms the Hugging Face cache and uses a temporary database. Subsequent runs default to cache-only model loading. Open **http://127.0.0.1:8769**. In **Ingest**, paste a document from the example corpus or supply your own cleared text. Use **Review** to inspect its chunks and publish the version. In **Ask**, try a question in a different language from the source and inspect the cited passage. API docs are at `/docs`.
 
-### Enable the local LLM
+With Docker Compose, run `HUB_ALLOW_DOWNLOAD=1 docker compose up --build` for the first session and exercise ingestion and search to fill the model cache. The application and models run in one container; named volumes store the documents and model weights. Recreate without `HUB_ALLOW_DOWNLOAD=1` to use cached models only. Do not expose this single-user demo to other users.
 
-Use a recent [llama.cpp server](https://github.com/ggml-org/llama.cpp) and a compatible instruction model. The demo uses the [Qwen2.5-0.5B-Instruct Q4_K_M GGUF](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF). Download the model separately and keep it outside the repository. On macOS with Ollama installed, its bundled executable can be used if available at `/Applications/Ollama.app/Contents/Resources/llama-server`.
+## How it works
 
-```sh
-llama-server -m /path/to/qwen2.5-0.5b-instruct-q4_k_m.gguf \
-  --alias qwen2.5-0.5b --host 127.0.0.1 --port 18081 -c 2048 -ngl 0 -t 4
-```
+React → FastAPI → overlapping text chunks → multilingual E5 embeddings → exact cosine search over SQLite vectors → multilingual cross-encoder reranking → Qwen generation with Transformers and PyTorch → validated citation IDs.
 
-In a second terminal, activate the Python environment and start FastAPI (stop any previous instance first):
+The UI accepts pasted plain text, tracks document versions by slug, and makes draft review explicit. English, Spanish and French are selectable response languages. A single published corpus is searched across languages. The system abstains when no passage qualifies or the answer lacks valid citation IDs. A citation establishes which passage the model referenced; it does not prove the passage supports every claim.
 
-```sh
-HUB_MODEL=qwen2.5-0.5b python -m uvicorn hub.app:app --host 127.0.0.1 --port 8769 --no-access-log
-```
-
-A successful model-assisted answer is labeled **LLM-selected answer**. Both servers bind to loopback, and the application sends no prompts to a cloud API. Interactive REST documentation is available at `/docs`.
-
-## Architecture
-
-```text
-React UI → FastAPI /api/ask → language + published filter → weighted keyword retrieval
-                                              ↓
-                  llama.cpp + local Qwen ← candidate sentences from up to two sources
-                                              ↓
-                  validated selection → exact source sentence + server-attached citation
-```
-
-The model selects one numbered candidate sentence. It generates a constrained index; it does not write free-form campaign copy. The server verifies the index and attaches the citation from its own records. If the model is unavailable or its response is invalid, the app shows visibly labeled source excerpts. If retrieval finds no adequate match, no model request is sent.
-
-The JSON knowledge library holds fictional text and source IDs, topics, locales, versions, and draft/published status. It models a small Git-based editorial workflow: propose an edit as draft, review the copy and locale variants, then mark it published in a reviewed change. Draft text is excluded from retrieval and the library endpoint. This is a read-only CMS demonstration; it has no editing UI, roles, or private storage. The sample draft is visible in the source code.
-
-## Validation
+## Tests and evaluation
 
 ```sh
 python -m unittest discover -s tests -v
-npm run build
+python -m evaluation.run
 ```
 
-On 9 November 2026, the local browser demo returned model-selected answers for the English water appeal and Spanish donor reporting examples, declined an unrelated question, and displayed draft metadata without draft text.
+Unit tests use controlled model doubles. The real-model evaluation reports retrieval recall at four, simple answer and citation checks, an abstention case, an injection case, per-request timing and token counts, and peak process memory. These are small smoke checks, not a general accuracy benchmark. GitHub Actions builds the UI, runs unit tests, and checks the Compose configuration. No deployment pipeline is configured.
 
-The tests cover locale filtering, draft exclusion, abstention before model invocation, request grounding, invalid model output, and fallback on model outage. GitHub Actions runs the build and automated tests on pushes and pull requests. No deployment workflow is configured.
-
-## Responsible AI and security
-
-- Only use fictional or cleared content. Never enter personal donor or beneficiary information.
-- Review answers against the displayed source before reuse. A valid citation proves which text was selected; it does not prove the selection answers the question.
-- No tool calling or free-form model output is rendered. A grammar constrains selection and the API checks it independently.
-- The application uses bounded question length, supported locale validation, restricted host headers, a fixed local model endpoint, and a model timeout. There is no app database or prompt history. Keep both services on loopback.
-- This is a single-user local MVP. It has no authentication, rate limiting, transport security, production monitoring, or formal security review. Do not expose it publicly as-is.
-
-## Limits and roadmap
-
-Retrieval uses language-specific lexical matching with accent normalization and a small set of curated tags. It does not translate, search across languages, retrieve from the live web, or use semantic embeddings. The corpus is deliberately small and does not represent operational guidance. The UI is in English; the source content and answers are available in English and Spanish.
-
-Next: expand and evaluate the bilingual corpus, add semantic retrieval where it improves measured relevance, add authenticated editorial approvals and audit history, and evaluate whether free-form synthesis can preserve attribution and factual accuracy.
-
-## Publish a copy
-
-From the repository root, with the [GitHub CLI](https://cli.github.com/) installed and authenticated:
-
-```sh
-gh auth login
-gh repo create humanitarian-fundraising-ai-hub --public --source=. --remote=origin --push
-```
-
-Alternatively, create an empty public repository on GitHub without a generated README, then follow GitHub’s **push an existing repository** instructions. Publish only this repository directory.
+The current scope is plain text, local use, small corpora, and manual publication. File parsing, authenticated reviewer roles, indexed approximate nearest-neighbor search, claim-level verification and production operations are outside this version.

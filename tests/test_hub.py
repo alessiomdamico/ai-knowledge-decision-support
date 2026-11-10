@@ -1,62 +1,81 @@
-import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
-from urllib.error import URLError
+
+from fastapi import HTTPException
 
 from hub import app as hub
+from hub.engine import chunks
 
 
-class FakeResponse:
-    def __init__(self, content):
-        self.content = content
+class TestHub(unittest.TestCase):
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        db = patch.object(hub, "DB", Path(temp.name) / "test.sqlite")
+        db.start()
+        self.addCleanup(db.stop)
+        self.embed = patch.object(hub.engine, "encode", side_effect=lambda texts, **kw: [[1, 0] for _ in texts])
+        self.embed.start()
+        self.addCleanup(self.embed.stop)
+        rank = patch.object(hub.engine, "rank", side_effect=lambda question, candidates: list(range(len(candidates))))
+        rank.start()
+        self.addCleanup(rank.stop)
 
-    def __enter__(self):
-        return self
+    def create(self, title="Backup policy"):
+        return hub.ingest(hub.Document(slug="backup", title=title, locale="en",
+                                       text=f"{title}: backups are retained for 30 days."))
 
-    def __exit__(self, *exc):
-        pass
+    def publish(self, record):
+        hub.review(record["id"], hub.Review(status="published"))
 
-    def read(self, size):
-        return json.dumps({"choices": [{"message": {"content": self.content}}]}).encode()
+    def test_chunk_overlap_and_tail(self):
+        self.assertEqual(chunks("a b c d e f g", size=4, overlap=1), ["a b c d", "d e f g"])
 
+    def test_draft_does_not_retrieve_and_publish_archives_previous(self):
+        first = self.create()
+        self.assertEqual(hub.retrieve("backup"), [])
+        self.publish(first)
+        self.assertEqual(hub.retrieve("backup")[0]["version"], 1)
+        second = self.create("Updated backup policy")
+        self.assertEqual(second["version"], 2)
+        self.publish(second)
+        self.assertEqual(hub.document(first["id"])["status"], "archived")
+        self.assertEqual([c["version"] for c in hub.retrieve("backup")], [2])
+        with self.assertRaises(HTTPException):
+            self.publish(first)
 
-class HubTests(unittest.TestCase):
-    def test_language_and_draft_isolation(self):
-        self.assertEqual([s["id"] for s in hub.retrieve("¿Qué financia la campaña de agua segura?", "es")], ["water-es"])
-        self.assertFalse(hub.retrieve("expansion", "en"))
-        draft = next(s for s in hub.library() if s["status"] == "draft")
-        self.assertNotIn("text", draft)
-
-    @patch.object(hub, "MODEL", "test-model")
-    @patch.object(hub, "urlopen")
-    def test_unrelated_question_never_calls_model(self, call):
-        response = hub.ask(hub.Question(question="Who discovered Neptune?"))
-        self.assertEqual(response["mode"], "insufficient")
-        call.assert_not_called()
-
-    @patch.object(hub, "MODEL", "test-model")
-    @patch.object(hub, "urlopen", return_value=FakeResponse("1"))
-    def test_model_receives_retrieved_evidence_and_citation_resolves(self, call):
-        result = hub.ask(hub.Question(question="What does the water appeal fund?"))
+    def test_cross_language_question_maps_citation_to_exact_chunk(self):
+        self.publish(self.create())
+        with patch.object(hub.engine, "answer", return_value=("30 días [S1].", {"prompt_tokens": 23})) as answer:
+            result = hub.ask(hub.Question(question="¿Cuántos días?", locale="es"))
         self.assertEqual(result["mode"], "llm")
-        self.assertEqual([s["id"] for s in result["sources"]], ["water-en"])
-        request = json.loads(call.call_args.args[0].data)
-        evidence = request["messages"][1]["content"]
-        self.assertIn("water quality testing", evidence)
-        self.assertNotIn("Unverified planning material", evidence)
-        self.assertIn("[water-en]", result["answer"])
+        self.assertEqual(result["sources"][0]["citation"], "S1")
+        self.assertEqual(result["sources"][0]["locale"], "en")
+        self.assertEqual(answer.call_args.args[1], "es")
 
-    @patch.object(hub, "MODEL", "test-model")
-    @patch.object(hub, "urlopen", return_value=FakeResponse("99"))
-    def test_invalid_evidence_selection_is_rejected(self, call):
-        result = hub.ask(hub.Question(question="What does the water appeal fund?"))
-        self.assertEqual(result["mode"], "fallback")
-        self.assertIn("[water-en]", result["answer"])
-        self.assertNotIn("Invented", result["answer"])
+    def test_unknown_or_missing_citations_abstain(self):
+        self.publish(self.create())
+        for text in ("Incorrect [S8]", "Incorrect [S1] [X]", "No citation"):
+            with patch.object(hub.engine, "answer", return_value=(text, {})):
+                self.assertEqual(hub.ask(hub.Question(question="backup"))["mode"], "insufficient")
 
-    @patch.object(hub, "MODEL", "test-model")
-    @patch.object(hub, "urlopen", side_effect=URLError("offline"))
-    def test_model_outage_returns_attributed_excerpts(self, call):
-        result = hub.ask(hub.Question(question="What belongs in a donor update?"))
-        self.assertEqual(result["mode"], "fallback")
-        self.assertIn("[report-en]", result["answer"])
+    def test_low_similarity_skips_generation(self):
+        self.publish(self.create())
+        with patch.object(hub.engine, "encode", return_value=[[0, 1]]), patch.object(hub.engine, "answer") as answer:
+            self.assertEqual(hub.ask(hub.Question(question="backup"))["mode"], "insufficient")
+            answer.assert_not_called()
+
+    def test_irrelevant_reranker_score_skips_generation(self):
+        self.publish(self.create())
+        with patch.object(hub.engine, "rank", return_value=[-3]), patch.object(hub.engine, "answer") as answer:
+            self.assertEqual(hub.ask(hub.Question(question="backup"))["mode"], "insufficient")
+            answer.assert_not_called()
+
+    def test_missing_model_returns_503(self):
+        with patch.object(hub.engine, "encode", side_effect=OSError("missing")):
+            with self.assertRaises(HTTPException) as ctx:
+                self.create()
+        self.assertEqual(ctx.exception.status_code, 503)
+        self.assertEqual(hub.sources(), [])
