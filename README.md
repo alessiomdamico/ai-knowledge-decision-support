@@ -1,10 +1,26 @@
 # AI Knowledge & Decision Support Platform
 
-**Independent technical project by Alessio D’Amico · 2026**
+**Independent R&D Project · 2026**
+
+Developed by Alessio Maria D'Amico
 
 A local web application for ingesting text documents, reviewing versions, and asking questions against published material. The app generates answers with Qwen and returns the exact passages behind its citations. The example corpus uses synthetic IT operations documents.
 
 [Architecture and request flow](docs/ARCHITECTURE.md) · [Threat model](docs/THREAT_MODEL.md) · [Evaluation cases](evaluation/cases.json)
+
+## MVP Demonstration
+
+### Ask
+
+![Ask interface with a question field and answer language selector](docs/screenshots/ask.jpg)
+
+### Ingest
+
+![Ingest interface for adding a plain-text document as a draft](docs/screenshots/ingest.jpg)
+
+### Review
+
+![Review interface listing published versions of synthetic documents](docs/screenshots/review.jpg)
 
 ## Run locally
 
