@@ -61,6 +61,23 @@ class TestHub(unittest.TestCase):
             with patch.object(hub.engine, "answer", return_value=(text, {})):
                 self.assertEqual(hub.ask(hub.Question(question="backup"))["mode"], "insufficient")
 
+    def test_citation_only_output_shows_evidence_instead_of_answer(self):
+        self.publish(self.create())
+        with patch.object(hub.engine, "answer", return_value=("[S1].", {})):
+            result = hub.ask(hub.Question(question="backup"))
+        self.assertEqual(result["mode"], "evidence")
+        self.assertEqual(result["sources"][0]["citation"], "S1")
+        self.assertIn("without an answer", result["answer"])
+
+    def test_search_only_returns_published_sources_without_generation(self):
+        published = self.create()
+        self.publish(published)
+        self.create("Draft version")
+        with patch.object(hub.engine, "answer") as answer:
+            result = hub.search(hub.Question(question="backup"))
+        self.assertEqual([s["id"] for s in result["sources"]], [published["id"]])
+        answer.assert_not_called()
+
     def test_low_similarity_skips_generation(self):
         self.publish(self.create())
         with patch.object(hub.engine, "encode", return_value=[[0, 1]]), patch.object(hub.engine, "answer") as answer:

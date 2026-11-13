@@ -26,7 +26,10 @@ Review displays stored chunks and allows the operator to publish or archive. Pub
 | `POST /api/documents` | Embeds and saves a new draft version. |
 | `GET /api/documents/{id}` | Returns version metadata and ordered chunks for review. |
 | `PATCH /api/documents/{id}` | Publishes a draft or archives a version. |
+| `POST /api/search` | Returns ranked published passages and retrieval latency without loading the answer model. |
 | `POST /api/ask` | Retrieves, reranks and generates a cited answer or abstains. |
+
+PDF uploads use `POST /api/documents/pdf` (multipart). The parser accepts selectable text up to 5 MiB, 50 pages, and 120,000 extracted characters. It chunks each page separately and stores the filename and one-based physical page number. Existing text records keep null PDF metadata. The original PDF is not retained.
 
 ## Retrieval and generation
 
