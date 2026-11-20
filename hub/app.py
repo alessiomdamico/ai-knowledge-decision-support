@@ -255,8 +255,20 @@ def ask(q: Question):
     ids = set(re.findall(r"\[(S\d+)\]", answer))
     allowed = {f"S{i}" for i in range(1, len(evidence)+1)}
     bracketed = set(re.findall(r"\[([^\[\]]+)\]", answer))
-    if not ids or bracketed != ids or not ids <= allowed or answer.startswith("INSUFFICIENT"):
-        return {"mode": "insufficient", "answer": ABSTAIN[q.locale], "sources": [], "metrics": metrics}
+    if not evidence or not answer.strip() or answer.strip().upper().startswith("INSUFFICIENT"):
+        message = {"en": "The model could not draft an answer from these passages. You can inspect them below.",
+                   "es": "El modelo no pudo redactar una respuesta con estos pasajes. Puedes consultarlos abajo.",
+                   "fr": "Le modèle n’a pas pu rédiger de réponse à partir de ces passages. Consultez-les ci-dessous."}
+        return {"mode": "insufficient", "answer": message[q.locale] if evidence else ABSTAIN[q.locale],
+                "sources": [], "metrics": metrics}
+    if not ids or bracketed != ids or not ids <= allowed:
+        # Preserve a substantive draft, but never invent or validate its citations.
+        if any(char.isalnum() for char in re.sub(r"\[[^\[\]]*\]", "", answer)):
+            return {"mode": "unverified", "model": GENERATOR, "answer": answer,
+                    "warning": "Source references could not be verified. Check this draft against the retrieved passages.",
+                    "sources": [], "metrics": metrics}
+        return {"mode": "evidence", "answer": "The model returned source labels without an explanation.",
+                "sources": [], "metrics": metrics}
     if not any(char.isalnum() for char in re.sub(r"\[S\d+\]", "", answer)):
         message = {
             "en": "Qwen returned citations without an answer. Check the passages below.",

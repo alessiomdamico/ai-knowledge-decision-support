@@ -55,11 +55,23 @@ class TestHub(unittest.TestCase):
         self.assertEqual(result["sources"][0]["locale"], "en")
         self.assertEqual(answer.call_args.args[1], "es")
 
-    def test_unknown_or_missing_citations_abstain(self):
+    def test_unknown_or_missing_citations_preserve_unverified_draft(self):
         self.publish(self.create())
         for text in ("Incorrect [S8]", "Incorrect [S1] [X]", "No citation"):
             with patch.object(hub.engine, "answer", return_value=(text, {})):
-                self.assertEqual(hub.ask(hub.Question(question="backup"))["mode"], "insufficient")
+                result = hub.ask(hub.Question(question="backup"))
+                self.assertEqual(result["mode"], "unverified")
+                self.assertEqual(result["answer"], text)
+                self.assertEqual(result["sources"], [])
+                self.assertIn("could not be verified", result["warning"])
+
+    def test_explicit_abstention_and_empty_output_do_not_become_drafts(self):
+        self.publish(self.create())
+        for text in ("INSUFFICIENT", "INSUFFICIENT [S1]", ""):
+            with patch.object(hub.engine, "answer", return_value=(text, {})):
+                result = hub.ask(hub.Question(question="backup"))
+                self.assertEqual(result["mode"], "insufficient")
+                self.assertEqual(result["sources"], [])
 
     def test_citation_only_output_shows_evidence_instead_of_answer(self):
         self.publish(self.create())

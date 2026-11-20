@@ -1,6 +1,6 @@
 # Architecture
 
-The independent AI Knowledge & Decision Support Platform is a single-user local application. The React UI and FastAPI routes share an origin. A Python worker loads three local model checkpoints on demand; no external inference endpoint is used.
+The AI Knowledge & Decision Support Platform is a single-user local application. The React UI and FastAPI routes share an origin. A Python worker loads three local model checkpoints on demand; no external inference endpoint is used.
 
 ```mermaid
 flowchart LR
@@ -59,10 +59,12 @@ sequenceDiagram
 
 Normalized vectors are compared by dot product, with a default threshold of 0.72. Search scans published vectors across locales. The multilingual cross-encoder reorders up to eight candidates; up to four with a reranker score of at least 0 go to Qwen. Both thresholds are configurable and need calibration for larger corpora. Qwen uses its chat template, greedy decoding, PyTorch inference mode and a cap of 220 new tokens. A model exception at the API boundary may result in HTTP 503; the API does not silently switch to a different model or claim to have generated an answer.
 
-The server requires one or more valid request-scoped IDs such as `[S1]` and rejects unknown bracketed references. It joins those IDs to the exact document version and chunk used to build the prompt. The app does not check that every generated claim is entailed by the cited text. The answer locale is a model instruction rather than an enforced output validator.
+The server checks request-scoped IDs such as `[S1]`. A substantive response with missing or unknown bracketed references is returned as an unverified response with a warning and no validated citations. Empty output, explicit model abstention and citation-only output do not become AI responses. For responses whose citation IDs pass validation, it joins those IDs to the exact document version and chunk used to build the prompt. The app does not check that every generated claim is entailed by the cited text. The answer locale is a model instruction rather than an enforced output validator.
 
 ## Runtime and verification
 
 The front end is bundled by esbuild and served from `dist/` when the build exists at startup. The Dockerfile builds those assets in a Node stage, then serves them from a non-root Python container. Compose publishes the HTTP port to loopback and persists data and the model cache. The in-process model lock serializes inference operations; models remain resident after their first use. CPU is the default. SQLite and a linear vector scan are intentional choices for small local corpora.
 
 Ask responses expose retrieval and total elapsed time, plus generation time, token counts and device when generation runs. The evaluation harness additionally records peak process RSS. CI verifies the frontend build, model-independent tests, and Compose configuration. No hosted service, continuous deployment, or production scaling configuration is included.
+
+The Ask interface has one **Search documents** button and an **Include an AI response** checkbox (on by default). It first calls `/api/search`, renders the passages, and optionally calls `/api/ask`; that endpoint currently repeats retrieval. The AI response or generation status appears above the passages. Citation labels are added to matching retrieved passages only when validated.
